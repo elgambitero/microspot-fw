@@ -19,7 +19,7 @@
 */
 
 /* The defaults.h file serves as a central default settings selector for different machine
-   types, from DIY CNC mills to CNC conversions of off-the-shelf machines. The settings 
+   types, from DIY CNC mills to CNC conversions of off-the-shelf machines. The settings
    files listed here are supplied by users, so your results may vary. However, this should
    give you a good starting point as you get to know your machine and tweak the settings for
    your nefarious needs.
@@ -88,4 +88,7 @@
   #include "defaults/defaults_simulator.h"
 #endif
 
+#ifdef DEFAULTS_MICROSPOT
+  //Settings for the MicroSpot automated cellphone microscopy system.
+  #include "defaults/defaults_microspot.h"
 #endif
