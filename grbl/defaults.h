@@ -92,3 +92,5 @@
   //Settings for the MicroSpot automated cellphone microscopy system.
   #include "defaults/defaults_microspot.h"
 #endif
+
+#endif
