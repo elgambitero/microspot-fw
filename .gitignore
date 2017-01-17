@@ -3,5 +3,6 @@
 *.elf
 *.DS_Store
 *.d
+grbl.conf
 
 README.md
