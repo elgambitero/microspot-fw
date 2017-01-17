@@ -2,7 +2,7 @@
   config.h - compile time configuration
   Part of Grbl
 
-  Copyright (c) 2012-2015 Sungeun K. Jeon
+  Copyright (c) 2012-2016 Sungeun K. Jeon for Gnea Research LLC
   Copyright (c) 2009-2011 Simen Svale Skogsrud
 
   Grbl is free software: you can redistribute it and/or modify
@@ -30,15 +30,16 @@
 #include "grbl.h" // For Arduino IDE compatibility.
 
 
-// Default settings. Used when resetting EEPROM. Change to desired name in defaults.h
+// Define CPU pin map and default settings.
+// NOTE: OEMs can avoid the need to maintain/update the defaults.h and cpu_map.h files and use only
+// one configuration file by placing their specific defaults and pin map at the bottom of this file.
+// If doing so, simply comment out these two defines and see instructions below.
 #define DEFAULTS_MICROSPOT
+#define CPU_MAP_ATMEGA328P // Arduino Uno CPU
 
 // Serial baud rate
+// #define BAUD_RATE 230400
 #define BAUD_RATE 115200
-
-// Default cpu mappings. Grbl officially supports the Arduino Uno only. Other processor types
-// may exist from user-supplied templates or directly user-defined in cpu_map.h
-#define CPU_MAP_ATMEGA328P // Arduino Uno CPU
 
 // Define realtime command special characters. These characters are 'picked-off' directly from the
 // serial read data stream and are not passed to the grbl line execution parser. Select characters
@@ -46,11 +47,40 @@
 // used, if they are available per user setup. Also, extended ASCII codes (>127), which are never in
 // g-code programs, maybe selected for interface programs.
 // NOTE: If changed, manually update help message in report.c.
-#define CMD_STATUS_REPORT '?'
-#define CMD_FEED_HOLD '!'
-#define CMD_CYCLE_START '~'
+
 #define CMD_RESET 0x18 // ctrl-x.
-#define CMD_SAFETY_DOOR '@'
+#define CMD_STATUS_REPORT '?'
+#define CMD_CYCLE_START '~'
+#define CMD_FEED_HOLD '!'
+
+// NOTE: All override realtime commands must be in the extended ASCII character set, starting
+// at character value 128 (0x80) and up to 255 (0xFF). If the normal set of realtime commands,
+// such as status reports, feed hold, reset, and cycle start, are moved to the extended set
+// space, serial.c's RX ISR will need to be modified to accomodate the change.
+// #define CMD_RESET 0x80
+// #define CMD_STATUS_REPORT 0x81
+// #define CMD_CYCLE_START 0x82
+// #define CMD_FEED_HOLD 0x83
+#define CMD_SAFETY_DOOR 0x84
+#define CMD_JOG_CANCEL  0x85
+#define CMD_DEBUG_REPORT 0x86 // Only when DEBUG enabled, sends debug report in '{}' braces.
+#define CMD_FEED_OVR_RESET 0x90         // Restores feed override value to 100%.
+#define CMD_FEED_OVR_COARSE_PLUS 0x91
+#define CMD_FEED_OVR_COARSE_MINUS 0x92
+#define CMD_FEED_OVR_FINE_PLUS  0x93
+#define CMD_FEED_OVR_FINE_MINUS  0x94
+#define CMD_RAPID_OVR_RESET 0x95        // Restores rapid override value to 100%.
+#define CMD_RAPID_OVR_MEDIUM 0x96
+#define CMD_RAPID_OVR_LOW 0x97
+// #define CMD_RAPID_OVR_EXTRA_LOW 0x98 // *NOT SUPPORTED*
+#define CMD_SPINDLE_OVR_RESET 0x99      // Restores spindle override value to 100%.
+#define CMD_SPINDLE_OVR_COARSE_PLUS 0x9A
+#define CMD_SPINDLE_OVR_COARSE_MINUS 0x9B
+#define CMD_SPINDLE_OVR_FINE_PLUS 0x9C
+#define CMD_SPINDLE_OVR_FINE_MINUS 0x9D
+#define CMD_SPINDLE_OVR_STOP 0x9E
+#define CMD_COOLANT_FLOOD_OVR_TOGGLE 0xA0
+#define CMD_COOLANT_MIST_OVR_TOGGLE 0xA1
 
 // If homing is enabled, homing init lock sets Grbl into an alarm state upon power up. This forces
 // the user to perform the homing cycle (or override the locks) before doing anything else. This is
@@ -76,10 +106,22 @@
 #define HOMING_CYCLE_1 (1<<Y_AXIS)  // And then the Y axis
 // #define HOMING_CYCLE_2                         // OPTIONAL: Uncomment and add axes mask to enable
 
+// NOTE: The following are two examples to setup homing for 2-axis machines.
+// #define HOMING_CYCLE_0 ((1<<X_AXIS)|(1<<Y_AXIS))  // NOT COMPATIBLE WITH COREXY: Homes both X-Y in one cycle.
+
+// #define HOMING_CYCLE_0 (1<<X_AXIS)  // COREXY COMPATIBLE: First home X
+// #define HOMING_CYCLE_1 (1<<Y_AXIS)  // COREXY COMPATIBLE: Then home Y
+
 // Number of homing cycles performed after when the machine initially jogs to limit switches.
 // This help in preventing overshoot and should improve repeatability. This value should be one or
 // greater.
 #define N_HOMING_LOCATE_CYCLE 1 // Integer (1-128)
+
+// Enables single axis homing commands. $HX, $HY, and $HZ for X, Y, and Z-axis homing. The full homing
+// cycle is still invoked by the $H command. This is disabled by default. It's here only to address
+// users that need to switch between a two-axis and three-axis machine. This is actually very rare.
+// If you have a two-axis machine, DON'T USE THIS. Instead, just alter the homing cycle for two-axes.
+// #define HOMING_SINGLE_AXIS_COMMANDS // Default disabled. Uncomment to enable.
 
 // After homing, Grbl will set by default the entire machine space into negative space, as is typical
 // for professional CNC machines, regardless of where the limit switches are located. Uncomment this
@@ -113,7 +155,7 @@
 // #define LIMITS_TWO_SWITCHES_ON_AXES
 
 // Allows GRBL to track and report gcode line numbers.  Enabling this means that the planning buffer
-// goes from 18 or 16 to make room for the additional line number data in the plan_block_t struct
+// goes from 16 to 15 to make room for the additional line number data in the plan_block_t struct
 // #define USE_LINE_NUMBERS // Disabled by default. Uncomment to enable.
 
 // Allows GRBL to report the real-time feed rate.  Enabling this means that GRBL will be reporting more
@@ -128,7 +170,7 @@
 
 // Enables a second coolant control pin via the mist coolant g-code command M7 on the Arduino Uno
 // analog pin 4. Only use this option if you require a second coolant control pin.
-// NOTE: The M8 flood coolant control pin on analog pin 4 will still be functional regardless.
+// NOTE: The M8 flood coolant control pin on analog pin 3 will still be functional regardless.
 // #define ENABLE_M7 // Disabled by default. Uncomment to enable.
 
 // This option causes the feed hold input to act as a safety door switch. A safety door, when triggered,
@@ -142,21 +184,21 @@
 #define SAFETY_DOOR_SPINDLE_DELAY 4.0 // Float (seconds)
 #define SAFETY_DOOR_COOLANT_DELAY 1.0 // Float (seconds)
 
-
 // Enable CoreXY kinematics. Use ONLY with CoreXY machines.
 // IMPORTANT: If homing is enabled, you must reconfigure the homing cycle #defines above to
 // #define HOMING_CYCLE_0 (1<<X_AXIS) and #define HOMING_CYCLE_1 (1<<Y_AXIS)
 // NOTE: This configuration option alters the motion of the X and Y axes to principle of operation
 // defined at (http://corexy.com/theory.html). Motors are assumed to positioned and wired exactly as
-// described, if not, motions may move in strange directions. Grbl assumes the CoreXY A and B motors
+// described, if not, motions may move in strange directions. Grbl requires the CoreXY A and B motors
 // have the same steps per mm internally.
 #define COREXY // Default disabled. Uncomment to enable.
 
-// Inverts pin logic of the control command pins. This essentially means when this option is enabled
-// you can use normally-closed switches, rather than the default normally-open switches.
-// NOTE: If you require individual control pins inverted, keep this macro disabled and simply alter
-//   the CONTROL_INVERT_MASK definition in cpu_map.h files.
-#define INVERT_ALL_CONTROL_PINS // Default disabled. Uncomment to enable.
+// Inverts pin logic of the control command pins based on a mask. This essentially means you can use
+// normally-closed switches on the specified pins, rather than the default normally-open switches.
+// NOTE: The top option will mask and invert all control pins. The bottom option is an example of
+// inverting only two control pins, the safety door and reset. See cpu_map.h for other bit definitions.
+#define INVERT_CONTROL_PIN_MASK CONTROL_MASK // Default disabled. Uncomment to disable.
+// #define INVERT_CONTROL_PIN_MASK ((1<<CONTROL_SAFETY_DOOR_BIT)|(CONTROL_RESET_BIT)) // Default disabled.
 
 // Inverts select limit pin states based on the following mask. This effects all limit pin functions,
 // such as hard limits and homing. However, this is different from overall invert limits setting.
@@ -166,7 +208,6 @@
 // NOTE: PLEASE DO NOT USE THIS, unless you have a situation that needs it.
 // #define INVERT_LIMIT_PIN_MASK ((1<<X_LIMIT_BIT)|(1<<Y_LIMIT_BIT)) // Default disabled. Uncomment to enable.
 
-
 // Inverts the spindle enable pin from low-disabled/high-enabled to low-enabled/high-disabled. Useful
 // for some pre-built electronic boards.
 // NOTE: If VARIABLE_SPINDLE is enabled(default), this option has no effect as the PWM output and
@@ -174,12 +215,10 @@
 // uncomment the config option USE_SPINDLE_DIR_AS_ENABLE_PIN below.
 // #define INVERT_SPINDLE_ENABLE_PIN // Default disabled. Uncomment to enable.
 
-// Enable all pin states feedback in status reports. Configurable with Grbl settings to print only
-// the desired data, which is presented as simple binary reading of each pin as (0 (low) or 1(high)).
-// The fields are printed in a particular order and settings groups are separated by '|' characters.
-// NOTE: This option is here for backward compatibility of the old style of pin state reports, i.e.
-// `Lim:000`. This new `Pin:` report will be the standard going forward.
-//#define REPORT_ALL_PIN_STATES // Default enabled. Comment to disable.
+// Inverts the selected coolant pin from low-disabled/high-enabled to low-enabled/high-disabled. Useful
+// for some pre-built electronic boards.
+// #define INVERT_COOLANT_FLOOD_PIN // Default disabled. Uncomment to enable.
+// #define INVERT_COOLANT_MIST_PIN // Default disabled. Note: Enable M7 mist coolant in config.h
 
 // When Grbl powers-cycles or is hard reset with the Arduino reset button, Grbl boots up with no ALARM
 // by default. This is to make it as simple as possible for new users to start using Grbl. When homing
@@ -189,14 +228,69 @@
 // OEMs and LinuxCNC users that would like this power-cycle behavior.
 // #define FORCE_INITIALIZATION_ALARM // Default disabled. Uncomment to enable.
 
+// At power-up or a reset, Grbl will check the limit switch states to ensure they are not active
+// before initialization. If it detects a problem and the hard limits setting is enabled, Grbl will
+// simply message the user to check the limits and enter an alarm state, rather than idle. Grbl will
+// not throw an alarm message.
+#define CHECK_LIMITS_AT_INIT
+
 // ---------------------------------------------------------------------------------------
 // ADVANCED CONFIGURATION OPTIONS:
 
-// Enables minimal reporting feedback mode for GUIs, where human-readable strings are not as important.
-// This saves nearly 2KB of flash space and may allow enough space to install other/future features.
-// GUIs will need to install a look-up table for the error-codes that Grbl sends back in their place.
-// NOTE: This feature is new and experimental. Make sure the GUI you are using supports this mode.
-// #define REPORT_GUI_MODE // Default disabled. Uncomment to enable.
+// Enables code for debugging purposes. Not for general use and always in constant flux.
+// #define DEBUG // Uncomment to enable. Default disabled.
+
+// Configure rapid, feed, and spindle override settings. These values define the max and min
+// allowable override values and the coarse and fine increments per command received. Please
+// note the allowable values in the descriptions following each define.
+#define DEFAULT_FEED_OVERRIDE           100 // 100%. Don't change this value.
+#define MAX_FEED_RATE_OVERRIDE          200 // Percent of programmed feed rate (100-255). Usually 120% or 200%
+#define MIN_FEED_RATE_OVERRIDE           10 // Percent of programmed feed rate (1-100). Usually 50% or 1%
+#define FEED_OVERRIDE_COARSE_INCREMENT   10 // (1-99). Usually 10%.
+#define FEED_OVERRIDE_FINE_INCREMENT      1 // (1-99). Usually 1%.
+
+#define DEFAULT_RAPID_OVERRIDE  100 // 100%. Don't change this value.
+#define RAPID_OVERRIDE_MEDIUM    50 // Percent of rapid (1-99). Usually 50%.
+#define RAPID_OVERRIDE_LOW       25 // Percent of rapid (1-99). Usually 25%.
+// #define RAPID_OVERRIDE_EXTRA_LOW 5 // *NOT SUPPORTED* Percent of rapid (1-99). Usually 5%.
+
+#define DEFAULT_SPINDLE_SPEED_OVERRIDE    100 // 100%. Don't change this value.
+#define MAX_SPINDLE_SPEED_OVERRIDE        200 // Percent of programmed spindle speed (100-255). Usually 200%.
+#define MIN_SPINDLE_SPEED_OVERRIDE         10 // Percent of programmed spindle speed (1-100). Usually 10%.
+#define SPINDLE_OVERRIDE_COARSE_INCREMENT  10 // (1-99). Usually 10%.
+#define SPINDLE_OVERRIDE_FINE_INCREMENT     1 // (1-99). Usually 1%.
+
+// When a M2 or M30 program end command is executed, most g-code states are restored to their defaults.
+// This compile-time option includes the restoring of the feed, rapid, and spindle speed override values
+// to their default values at program end.
+#define RESTORE_OVERRIDES_AFTER_PROGRAM_END // Default enabled. Comment to disable.
+
+// The status report change for Grbl v1.1 and after also removed the ability to disable/enable most data
+// fields from the report. This caused issues for GUI developers, who've had to manage several scenarios
+// and configurations. The increased efficiency of the new reporting style allows for all data fields to
+// be sent without potential performance issues.
+// NOTE: The options below are here only provide a way to disable certain data fields if a unique
+// situation demands it, but be aware GUIs may depend on this data. If disabled, it may not be compatible.
+#define REPORT_FIELD_BUFFER_STATE // Default enabled. Comment to disable.
+#define REPORT_FIELD_PIN_STATE // Default enabled. Comment to disable.
+#define REPORT_FIELD_CURRENT_FEED_SPEED // Default enabled. Comment to disable.
+#define REPORT_FIELD_WORK_COORD_OFFSET // Default enabled. Comment to disable.
+#define REPORT_FIELD_OVERRIDES // Default enabled. Comment to disable.
+#define REPORT_FIELD_LINE_NUMBERS // Default enabled. Comment to disable.
+
+// Some status report data isn't necessary for realtime, only intermittently, because the values don't
+// change often. The following macros configures how many times a status report needs to be called before
+// the associated data is refreshed and included in the status report. However, if one of these value
+// changes, Grbl will automatically include this data in the next status report, regardless of what the
+// count is at the time. This helps reduce the communication overhead involved with high frequency reporting
+// and agressive streaming. There is also a busy and an idle refresh count, which sets up Grbl to send
+// refreshes more often when its not doing anything important. With a good GUI, this data doesn't need
+// to be refreshed very often, on the order of a several seconds.
+// NOTE: WCO refresh must be 2 or greater. OVR refresh must be 1 or greater.
+#define REPORT_OVR_REFRESH_BUSY_COUNT 20  // (1-255)
+#define REPORT_OVR_REFRESH_IDLE_COUNT 10  // (1-255) Must be less than or equal to the busy count
+#define REPORT_WCO_REFRESH_BUSY_COUNT 30  // (2-255)
+#define REPORT_WCO_REFRESH_IDLE_COUNT 10  // (2-255) Must be less than or equal to the busy count
 
 // The temporal resolution of the acceleration management subsystem. A higher number gives smoother
 // acceleration, particularly noticeable on machines that run at very high feedrates, but may negatively
@@ -252,10 +346,13 @@
 // Used by variable spindle output only. This forces the PWM output to a minimum duty cycle when enabled.
 // The PWM pin will still read 0V when the spindle is disabled. Most users will not need this option, but
 // it may be useful in certain scenarios. This minimum PWM settings coincides with the spindle rpm minimum
-// setting, like rpm max to max PWM. So the variable spindle pin will not output the voltage range between
-// 0V for disabled and the voltage set by the minimum PWM for minimum rpm.
-// NOTE: Compute duty cycle at the minimum PWM by this equation: (% duty cycle)=(SPINDLE_MINIMUM_PWM/256)*100
-// #define SPINDLE_MINIMUM_PWM 5 // Default disabled. Uncomment to enable. Integer (0-255)
+// setting, like rpm max to max PWM. This is handy if you need a larger voltage difference between 0V disabled
+// and the voltage set by the minimum PWM for minimum rpm. This difference is 0.02V per PWM value. So, when
+// minimum PWM is at 1, only 0.02 volts separate enabled and disabled. At PWM 5, this would be 0.1V. Keep
+// in mind that you will begin to lose PWM resolution with increased minimum PWM values, since you have less
+// and less range over the total 255 PWM levels to signal different spindle speeds.
+// NOTE: Compute duty cycle at the minimum PWM by this equation: (% duty cycle)=(SPINDLE_PWM_MIN_VALUE/255)*100
+// #define SPINDLE_PWM_MIN_VALUE 5 // Default disabled. Uncomment to enable. Must be greater than zero. Integer (1-255).
 
 // By default on a 328p(Uno), Grbl combines the variable spindle PWM and the enable into one pin to help
 // preserve I/O pins. For certain setups, these may need to be separate pins. This configure option uses
@@ -326,10 +423,10 @@
 
 // The number of linear motions in the planner buffer to be planned at any give time. The vast
 // majority of RAM that Grbl uses is based on this buffer size. Only increase if there is extra
-// available RAM, like when re-compiling for a Mega or Sanguino. Or decrease if the Arduino
-// begins to crash due to the lack of available RAM or if the CPU is having trouble keeping
-// up with planning new incoming motions as they are executed.
-// #define BLOCK_BUFFER_SIZE 18  // Uncomment to override default in planner.h.
+// available RAM, like when re-compiling for a Mega2560. Or decrease if the Arduino begins to
+// crash due to the lack of available RAM or if the CPU is having trouble keeping up with planning
+// new incoming motions as they are executed.
+// #define BLOCK_BUFFER_SIZE 16 // Uncomment to override default in planner.h.
 
 // Governs the size of the intermediary step segment buffer between the step execution algorithm
 // and the planner blocks. Each segment is set of steps executed at a constant velocity over a
@@ -355,19 +452,12 @@
 // increase the receive buffer if a deeper receive buffer is needed for streaming and avaiable
 // memory allows. The send buffer primarily handles messages in Grbl. Only increase if large
 // messages are sent and Grbl begins to stall, waiting to send the rest of the message.
-// NOTE: Buffer size values must be greater than zero and less than 256.
-// #define RX_BUFFER_SIZE 128 // Uncomment to override defaults in serial.h
-// #define TX_BUFFER_SIZE 64
-
-// Toggles XON/XOFF software flow control for serial communications. Not officially supported
-// due to problems involving the Atmega8U2 USB-to-serial chips on current Arduinos. The firmware
-// on these chips do not support XON/XOFF flow control characters and the intermediate buffer
-// in the chips cause latency and overflow problems with standard terminal programs. However,
-// using specifically-programmed UI's to manage this latency problem has been confirmed to work.
-// As well as, older FTDI FT232RL-based Arduinos(Duemilanove) are known to work with standard
-// terminal programs since their firmware correctly manage these XON/XOFF characters. In any
-// case, please report any successes to grbl administrators!
-// #define ENABLE_XONXOFF // Default disabled. Uncomment to enable.
+// NOTE: Grbl generates an average status report in about 0.5msec, but the serial TX stream at
+// 115200 baud will take 5 msec to transmit a typical 55 character report. Worst case reports are
+// around 90-100 characters. As long as the serial TX buffer doesn't get continually maxed, Grbl
+// will continue operating efficiently. Size the TX buffer around the size of a worst-case report.
+// #define RX_BUFFER_SIZE 128 // (1-254) Uncomment to override defaults in serial.h
+// #define TX_BUFFER_SIZE 100 // (1-254)
 
 // A simple software debouncing feature for hard limit switches. When enabled, the interrupt
 // monitoring the hard limit switch pins will enable the Arduino's watchdog timer to re-check
@@ -377,6 +467,10 @@
 // use shielded signal cables with their shielding connected to ground (old USB/computer cables
 // work well and are cheap to find) and wire in a low-pass circuit into each limit pin.
 // #define ENABLE_SOFTWARE_DEBOUNCE // Default disabled. Uncomment to enable.
+
+// Configures the position after a probing cycle during Grbl's check mode. Disabled sets
+// the position to the probe target, when enabled sets the position to the start position.
+// #define SET_CHECK_MODE_PROBE_TO_START // Default disabled. Uncomment to enable.
 
 // Force Grbl to check the state of the hard limit switches when the processor detects a pin
 // change inside the hard limit ISR routine. By default, Grbl will trigger the hard limits
@@ -398,6 +492,58 @@
 // #define HOMING_AXIS_SEARCH_SCALAR  1.5 // Uncomment to override defaults in limits.c.
 // #define HOMING_AXIS_LOCATE_SCALAR  10.0 // Uncomment to override defaults in limits.c.
 
+// Enable the '$RST=*', '$RST=$', and '$RST=#' eeprom restore commands. There are cases where
+// these commands may be undesirable. Simply comment the desired macro to disable it.
+// NOTE: See SETTINGS_RESTORE_ALL macro for customizing the `$RST=*` command.
+#define ENABLE_RESTORE_EEPROM_WIPE_ALL         // '$RST=*' Default enabled. Comment to disable.
+#define ENABLE_RESTORE_EEPROM_DEFAULT_SETTINGS // '$RST=$' Default enabled. Comment to disable.
+#define ENABLE_RESTORE_EEPROM_CLEAR_PARAMETERS // '$RST=#' Default enabled. Comment to disable.
+
+// Defines the EEPROM data restored upon a settings version change and `$RST=*` command. Whenever the
+// the settings or other EEPROM data structure changes between Grbl versions, Grbl will automatically
+// wipe and restore the EEPROM. This macro controls what data is wiped and restored. This is useful
+// particularily for OEMs that need to retain certain data. For example, the BUILD_INFO string can be
+// written into the Arduino EEPROM via a seperate .INO sketch to contain product data. Altering this
+// macro to not restore the build info EEPROM will ensure this data is retained after firmware upgrades.
+// NOTE: Uncomment to override defaults in settings.h
+// #define SETTINGS_RESTORE_ALL (SETTINGS_RESTORE_DEFAULTS | SETTINGS_RESTORE_PARAMETERS | SETTINGS_RESTORE_STARTUP_LINES | SETTINGS_RESTORE_BUILD_INFO)
+
+// Enable the '$I=(string)' build info write command. If disabled, any existing build info data must
+// be placed into EEPROM via external means with a valid checksum value. This macro option is useful
+// to prevent this data from being over-written by a user, when used to store OEM product data.
+// NOTE: If disabled and to ensure Grbl can never alter the build info line, you'll also need to enable
+// the SETTING_RESTORE_ALL macro above and remove SETTINGS_RESTORE_BUILD_INFO from the mask.
+// NOTE: See the included grblWrite_BuildInfo.ino example file to write this string seperately.
+#define ENABLE_BUILD_INFO_WRITE_COMMAND // '$I=' Default enabled. Comment to disable.
+
+// AVR processors require all interrupts to be disabled during an EEPROM write. This includes both
+// the stepper ISRs and serial comm ISRs. In the event of a long EEPROM write, this ISR pause can
+// cause active stepping to lose position and serial receive data to be lost. This configuration
+// option forces the planner buffer to completely empty whenever the EEPROM is written to prevent
+// any chance of lost steps.
+// However, this doesn't prevent issues with lost serial RX data during an EEPROM write, especially
+// if a GUI is premptively filling up the serial RX buffer simultaneously. It's highly advised for
+// GUIs to flag these gcodes (G10,G28.1,G30.1) to always wait for an 'ok' after a block containing
+// one of these commands before sending more data to eliminate this issue.
+// NOTE: Most EEPROM write commands are implicitly blocked during a job (all '$' commands). However,
+// coordinate set g-code commands (G10,G28/30.1) are not, since they are part of an active streaming
+// job. At this time, this option only forces a planner buffer sync with these g-code commands.
+#define FORCE_BUFFER_SYNC_DURING_EEPROM_WRITE // Default enabled. Comment to disable.
+
+// In Grbl v0.9 and prior, there is an old outstanding bug where the `WPos:` work position reported
+// may not correlate to what is executing, because `WPos:` is based on the g-code parser state, which
+// can be several motions behind. This option forces the planner buffer to empty, sync, and stop
+// motion whenever there is a command that alters the work coordinate offsets `G10,G43.1,G92,G54-59`.
+// This is the simplest way to ensure `WPos:` is always correct. Fortunately, it's exceedingly rare
+// that any of these commands are used need continuous motions through them.
+#define FORCE_BUFFER_SYNC_DURING_WCO_CHANGE // Default enabled. Comment to disable.
+
+// By default, Grbl disables feed rate overrides for all G38.x probe cycle commands. Although this
+// may be different than some pro-class machine control, it's arguable that it should be this way.
+// Most probe sensors produce different levels of error that is dependent on rate of speed. By
+// keeping probing cycles to their programmed feed rates, the probe sensor should be a lot more
+// repeatable. If needed, you can disable this behavior by uncommenting the define below.
+// #define ALLOW_FEED_OVERRIDE_DURING_PROBE_CYCLES // Default disabled. Uncomment to enable.
 
 // Enables and configures parking motion methods upon a safety door state. Primarily for OEMs
 // that desire this feature for their integrated machines. At the moment, Grbl assumes that
@@ -417,34 +563,29 @@
 // Configure options for the parking motion, if enabled.
 #define PARKING_AXIS Z_AXIS // Define which axis that performs the parking motion
 #define PARKING_TARGET -5.0 // Parking axis target. In mm, as machine coordinate [-max_travel,0].
-#define PARKING_RATE -1.0 // Parking fast rate after pull-out. In mm/min or (-1.0) for seek rate.
-#define PARKING_PULLOUT_RATE 250.0 // Pull-out/plunge slow feed rate in mm/min.
+#define PARKING_RATE 500.0 // Parking fast rate after pull-out in mm/min.
+#define PARKING_PULLOUT_RATE 100.0 // Pull-out/plunge slow feed rate in mm/min.
 #define PARKING_PULLOUT_INCREMENT 5.0 // Spindle pull-out and plunge distance in mm. Incremental distance.
                                       // Must be positive value or equal to zero.
 
+// This option will automatically disable the laser during a feed hold by invoking a spindle stop
+// override immediately after coming to a stop. However, this also means that the laser still may
+// be reenabled by disabling the spindle stop override, if needed. This is purely a safety feature
+// to ensure the laser doesn't inadvertently remain powered while at a stop and cause a fire.
+#define DISABLE_LASER_DURING_HOLD // Default enabled. Comment to disable.
 
-// ---------------------------------------------------------------------------------------
-// COMPILE-TIME ERROR CHECKING OF DEFINE VALUES:
+/* ---------------------------------------------------------------------------------------
+   OEM Single File Configuration Option
 
-#ifndef HOMING_CYCLE_0
-  #error "Required HOMING_CYCLE_0 not defined."
-#endif
+   Instructions: Paste the cpu_map and default setting definitions below without an enclosing
+   #ifdef. Comment out the CPU_MAP_xxx and DEFAULT_xxx defines at the top of this file, and
+   the compiler will ignore the contents of defaults.h and cpu_map.h and use the definitions
+   below.
+*/
 
-#if defined(USE_SPINDLE_DIR_AS_ENABLE_PIN) && !defined(VARIABLE_SPINDLE)
-  #error "USE_SPINDLE_DIR_AS_ENABLE_PIN may only be used with VARIABLE_SPINDLE enabled"
-#endif
+// Paste CPU_MAP definitions here.
 
-#if defined(USE_SPINDLE_DIR_AS_ENABLE_PIN) && !defined(CPU_MAP_ATMEGA328P)
-  #error "USE_SPINDLE_DIR_AS_ENABLE_PIN may only be used with a 328p processor"
-#endif
-
-#if defined(PARKING_ENABLE)
-  #if defined(HOMING_FORCE_SET_ORIGIN)
-    #error "HOMING_FORCE_SET_ORIGIN is not supported with PARKING_ENABLE at this time."
-  #endif
-#endif
-
-// ---------------------------------------------------------------------------------------
+// Paste default settings definitions here.
 
 
 #endif
