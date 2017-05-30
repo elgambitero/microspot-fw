@@ -157,6 +157,7 @@ ISR(SERIAL_RX)
         switch(data) {
           case CMD_SAFETY_DOOR:   system_set_exec_state_flag(EXEC_SAFETY_DOOR); break; // Set as true
           case CMD_JOG_CANCEL:   
+            system_set_exec_state_flag(EXEC_STATUS_REPORT);
             if (sys.state & STATE_JOG) { // Block all other states from invoking motion cancel.
               system_set_exec_state_flag(EXEC_MOTION_CANCEL); 
             }
