@@ -246,11 +246,6 @@ void protocol_exec_rt_system()
       return; // Nothing else to do but exit.
     }
 
-    // Execute and serial print status
-    if (rt_exec & EXEC_STATUS_REPORT) {
-      report_realtime_status();
-      system_clear_exec_state_flag(EXEC_STATUS_REPORT);
-    }
 
     // NOTE: Once hold is initiated, the system immediately enters a suspend state to block all
     // main program processes until either reset or resumed. This ensures a hold completes safely.
@@ -399,6 +394,12 @@ void protocol_exec_rt_system()
         }
       }
       system_clear_exec_state_flag(EXEC_CYCLE_STOP);
+    }
+    
+    // Execute and serial print status
+    if (rt_exec & EXEC_STATUS_REPORT) {
+      report_realtime_status();
+      system_clear_exec_state_flag(EXEC_STATUS_REPORT);
     }
   }
 
