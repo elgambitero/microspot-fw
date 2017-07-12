@@ -454,8 +454,8 @@
 
 #ifdef DEFAULTS_MICROSPOT
   //Settings for the MicroSpot automated cellphone microscopy system.
-  #define DEFAULT_X_STEPS_PER_MM 200
-  #define DEFAULT_Y_STEPS_PER_MM 200
+  #define DEFAULT_X_STEPS_PER_MM 100
+  #define DEFAULT_Y_STEPS_PER_MM 100
   #define DEFAULT_Z_STEPS_PER_MM 250.0
   #define DEFAULT_X_MAX_RATE 500.0// mm/min
   #define DEFAULT_Y_MAX_RATE 500.0 // mm/min
